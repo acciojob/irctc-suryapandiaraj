@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class TicketService {
@@ -27,7 +28,7 @@ public class TicketService {
     PassengerRepository passengerRepository;
 
 
-    public Integer bookTicket(BookTicketEntryDto bookTicketEntryDto)throws Exception{
+    public Integer bookTicket(BookTicketEntryDto bookTicketEntryDto)throws Exception {
 
         //Check for validity
         //Use bookedTickets List from the TrainRepository to get bookings done against that train
@@ -40,9 +41,34 @@ public class TicketService {
         //throw new Exception("Invalid stations");
         //Save the bookedTickets in the train Object
         //Also in the passenger Entity change the attribute bookedTickets by using the attribute bookingPersonId.
-       //And the end return the ticketId that has come from db
+        //And the end return the ticketId that has come from db
+        Train train = trainRepository.findById(bookTicketEntryDto.getTrainId()).get();
+        Passenger passenger = passengerRepository.findById(bookTicketEntryDto.getBookingPersonId()).get();
+        int vacancy = (train.getNoOfSeats() - train.getBookedTickets().size());
+        if (vacancy < bookTicketEntryDto.getNoOfSeats()) {
+            throw new Exception("Less tickets are available");
+        }
+        if (!train.getRoute().contains(bookTicketEntryDto.getFromStation().toString()) || !train.getRoute().contains(bookTicketEntryDto.getToStation().toString())) {
+            throw new Exception("Invalid stations");
+        }
 
-       return null;
+        Ticket ticket = new Ticket();
+        ticket.setFromStation(bookTicketEntryDto.getFromStation());
+        ticket.setToStation(bookTicketEntryDto.getToStation());
+        ticket.setTrain(train);
+        ticket.setPassengersList(passengerRepository.findAllById(bookTicketEntryDto.getPassengerIds()));
 
+        Passenger bookingPerson = passengerRepository.findById(bookTicketEntryDto.getBookingPersonId()).get();
+        bookingPerson.getBookedTickets().add(ticket);
+
+        int totalFare = 0;
+        int from = train.getRoute().indexOf(bookTicketEntryDto.getFromStation().toString());
+        int to = train.getRoute().indexOf(bookTicketEntryDto.getToStation().toString());
+        totalFare = (from - to) * 300;
+        ticket.setTotalFare(totalFare);
+
+        ticketRepository.save(ticket);
+
+        return ticket.getTicketId();
     }
 }
